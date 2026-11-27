@@ -22,11 +22,22 @@ export const ACTIONS_FOR_CAP = 60;
 
 export const PRE_EVENT_WATER_HINT = "เริ่มรดน้ำได้วันที่ 1 ธ.ค. 2569";
 
+const toMs = (d: Date | number) => (typeof d === "number" ? d : d.getTime());
+let runtimeOffset: number | null = null;
+
+/** Dev mode: pretend "now" is the given instant (the clock keeps ticking). null = real time. */
+export function setTimeOverride(target: Date | number | null): void {
+  runtimeOffset =
+    target === null ? null : toMs(target) - Date.now();
+}
+export const getTimeOverrideActive = () => runtimeOffset !== null;
+
 /**
  * Optional dev/testing override, e.g. NEXT_PUBLIC_EVENT_NOW="2026-12-25T08:00:00+07:00".
- * Ignored in production builds.
+ * The env var is ignored in production builds; use Dev mode (setTimeOverride) there.
  */
 function devOverride(): number | null {
+  if (runtimeOffset !== null) return Date.now() + runtimeOffset;
   if (process.env.NODE_ENV === "production") return null;
   const raw = process.env.NEXT_PUBLIC_EVENT_NOW;
   if (!raw) return null;
@@ -34,7 +45,7 @@ function devOverride(): number | null {
   return Number.isNaN(t) ? null : t;
 }
 
-/** Current epoch ms (honours the dev override). */
+/** Current epoch ms (honours overrides). */
 export function nowMs(now?: Date | number): number {
   if (now !== undefined) return typeof now === "number" ? now : now.getTime();
   return devOverride() ?? Date.now();

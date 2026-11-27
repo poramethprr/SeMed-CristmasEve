@@ -14,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import Scene from "./scene/Scene";
+import DevPanel from "./DevPanel";
 import { CountdownBadge, Gallery, NameModal, Toasts, WishesWall, glass } from "./Panels";
 import { useUserSession } from "@/hooks/useUserSession";
 import {
@@ -28,6 +29,7 @@ import {
   PRE_EVENT_WATER_HINT,
   canWaterOrFertilize,
   getEventPhase,
+  getTimeOverrideActive,
   type EventPhase,
 } from "@/lib/eventTime";
 import { ORNAMENTS, ORNAMENT_COLORS, ornamentInfo } from "@/lib/items";
@@ -68,18 +70,18 @@ const PRESET_BTNS: { id: CameraPresetName; label: string }[] = [
   { id: "reset", label: "รีเซ็ต" },
 ];
 
-function usePhase(): EventPhase {
+function usePhase(): [EventPhase, () => void] {
   const [p, setP] = useState<EventPhase>(() => getEventPhase());
   useEffect(() => {
     const i = setInterval(() => setP(getEventPhase()), 10000);
     return () => clearInterval(i);
   }, []);
-  return p;
+  return [p, () => setP(getEventPhase())];
 }
 
 export default function GameApp() {
   const { userId, displayName, needsName, synced, saveName } = useUserSession();
-  const phase = usePhase();
+  const [phase, refreshPhase] = usePhase();
   const users = useUsers();
   const { cheered, addCheered } = useCheered();
 
@@ -109,7 +111,7 @@ export default function GameApp() {
 
   // ---- which tree is on stage ----
   const communityId = useCommunityTreeId();
-  const personalId = usePersonalTreeId(userId, synced && !!displayName);
+  const personalId = usePersonalTreeId(userId, synced && !!displayName, push);
   const sceneTreeId =
     viewing ?? (tab === "personal" ? personalId : communityId);
 
@@ -183,6 +185,7 @@ export default function GameApp() {
       p_tree_id: tree.id,
       p_user_id: userId,
       p_kind: kind,
+      p_dev: getTimeOverrideActive(),
     });
     setTimeout(() => setBusy(false), 900);
     if (error) return push(error.message);
@@ -234,6 +237,41 @@ export default function GameApp() {
       .single();
     if (error) return push(error.message);
     upsertDeco(data as DbDeco);
+  }
+
+  // ---- contest vote for the tree on stage ----
+  const [votedTrees, setVotedTrees] = useState<Record<string, boolean>>({});
+  const stageTreeId = tree?.id;
+  const stageIsPersonal = tree?.type === "personal";
+  useEffect(() => {
+    const sb = getSupabase();
+    if (!sb || !userId || !stageTreeId || !stageIsPersonal) return;
+    let alive = true;
+    sb.from("tree_votes")
+      .select("tree_id")
+      .eq("tree_id", stageTreeId)
+      .eq("user_id", userId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (alive) setVotedTrees((v) => ({ ...v, [stageTreeId]: !!data }));
+      });
+    return () => {
+      alive = false;
+    };
+  }, [stageTreeId, stageIsPersonal, userId]);
+
+  async function toggleVote() {
+    const sb = getSupabase();
+    if (!sb || !tree || !userId || tree.type !== "personal") return;
+    if (!synced) return push("กำลังเตรียมข้อมูลผู้ใช้ รอสักครู่...");
+    const has = !!votedTrees[tree.id];
+    const { error } = has
+      ? await sb.from("tree_votes").delete().eq("tree_id", tree.id).eq("user_id", userId)
+      : await sb.from("tree_votes").insert({ tree_id: tree.id, user_id: userId });
+    if (error) return push(error.message);
+    setVotedTrees((v) => ({ ...v, [tree.id]: !has }));
+    push(has ? "ยกเลิกโหวตแล้ว" : "❤️ โหวตให้ต้นไม้นี้แล้ว!");
+    if (!has) confetti({ particleCount: 40, spread: 60, origin: { y: 0.3 }, colors: ["#ff5d8f", "#ffd166"] });
   }
 
   async function removeSelected() {
@@ -342,6 +380,18 @@ export default function GameApp() {
             <span className={`${glass} rounded-full px-3 py-1`}>
               💧 {tree.water_count} · 🌱 {tree.fertilizer_count}
             </span>
+          )}
+          {tree?.type === "personal" && (
+            <button
+              onClick={toggleVote}
+              disabled={tree.owner_id === userId}
+              title={tree.owner_id === userId ? "โหวตต้นไม้ตัวเองไม่ได้" : undefined}
+              className={`flex items-center gap-1 rounded-full px-3 py-1 font-semibold disabled:cursor-default ${
+                votedTrees[tree.id] ? "bg-rose-500" : "bg-white/20 hover:bg-white/30"
+              }`}
+            >
+              ❤️ {tree.owner_id === userId ? "คะแนนโหวต" : votedTrees[tree.id] ? "โหวตแล้ว" : "โหวตต้นไม้นี้"} · {tree.votes_count}
+            </button>
           )}
           {phase === "CHRISTMAS_DAY" && (
             <span className="rounded-full bg-amber-400 px-3 py-1 font-bold text-slate-900">
@@ -526,6 +576,7 @@ export default function GameApp() {
       </footer>
 
       <Toasts items={toasts} />
+      <DevPanel onTimeChange={refreshPhase} />
 
       <NameModal
         key={nameOpen ? "edit" : needsName ? "first" : "closed"}

@@ -62,15 +62,48 @@ export function useCommunityTreeId(): string | null {
 export function usePersonalTreeId(
   userId: string | null,
   enabled: boolean,
+  onError?: (msg: string) => void,
 ): string | null {
   const [id, setId] = useState<string | null>(null);
+  const errRef = useRef(onError);
+  useEffect(() => {
+    errRef.current = onError;
+  });
   useEffect(() => {
     const sb = getSupabase();
     if (!sb || !userId || !enabled) return;
     let alive = true;
-    sb.rpc("ensure_personal_tree", { p_user_id: userId }).then(({ data }) => {
-      if (alive && data) setId((data as DbTree).id);
-    });
+    (async () => {
+      // Plain table access (RLS is open) — no dependency on the RPC existing.
+      const find = () =>
+        sb
+          .from("trees")
+          .select("id")
+          .eq("type", "personal")
+          .eq("owner_id", userId)
+          .maybeSingle();
+      let { data, error } = await find();
+      if (!data && !error) {
+        const ins = await sb
+          .from("trees")
+          .insert({ type: "personal", owner_id: userId })
+          .select("id")
+          .single();
+        data = ins.data;
+        error = ins.error;
+        if (error) {
+          // lost a race with another tab → fetch the winner
+          const again = await find();
+          if (again.data) {
+            data = again.data;
+            error = null;
+          }
+        }
+      }
+      if (!alive) return;
+      if (data) setId((data as { id: string }).id);
+      else if (error) errRef.current?.(`สร้างต้นไม้ส่วนตัวไม่สำเร็จ: ${error.message}`);
+    })();
     return () => {
       alive = false;
     };

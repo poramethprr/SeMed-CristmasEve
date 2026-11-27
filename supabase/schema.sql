@@ -111,13 +111,17 @@ create trigger tree_votes_no_self
 -- Event window is enforced server-side too: Dec 1 2026 00:00 (+07:00) onward,
 -- and it stays open on/after Christmas Day (no upper bound).
 
+-- p_dev: set by the app's password-gated Dev mode so testers can simulate dates.
+-- (RLS is open anyway, so this window check is a convenience, not security.)
+drop function if exists public.care_for_tree(uuid, uuid, text);
 create or replace function public.care_for_tree(
-  p_tree_id uuid, p_user_id uuid, p_kind text   -- 'water' | 'fertilize'
+  p_tree_id uuid, p_user_id uuid, p_kind text,   -- 'water' | 'fertilize'
+  p_dev boolean default false
 ) returns public.trees
 language plpgsql security definer set search_path = public as $$
 declare t public.trees;
 begin
-  if now() < timestamptz '2026-12-01 00:00:00+07' then
+  if not p_dev and now() < timestamptz '2026-12-01 00:00:00+07' then
     raise exception 'เริ่มรดน้ำได้วันที่ 1 ธ.ค. 2569';
   end if;
   if p_kind = 'water' then
@@ -157,7 +161,7 @@ begin
 end $$;
 
 grant execute on function
-  public.care_for_tree(uuid, uuid, text),
+  public.care_for_tree(uuid, uuid, text, boolean),
   public.cheer_decoration(uuid),
   public.cheer_wish(uuid),
   public.ensure_personal_tree(uuid)

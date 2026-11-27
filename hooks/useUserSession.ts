@@ -40,7 +40,10 @@ export function useUserSession(): UserSession {
     if (name && sb) {
       sb.from("users")
         .upsert({ id, display_name: name })
-        .then(() => setSynced(true));
+        .then(({ error }) => {
+          if (error) console.error("users upsert failed:", error.message);
+          setSynced(true);
+        });
     } else if (!sb) {
       setSynced(true);
     }
