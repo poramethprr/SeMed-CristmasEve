@@ -5,7 +5,7 @@ import { Heart, Shuffle, Trophy, X } from "lucide-react";
 import { getSupabase } from "@/lib/supabase";
 import {
   getCountdown,
-  getGrowth,
+  getEventPhase,
   getNextMilestone,
   type Countdown as CountdownT,
 } from "@/lib/eventTime";
@@ -115,8 +115,8 @@ export function Toasts({ items }: { items: { id: number; text: string }[] }) {
 }
 
 // ---- Mini tree (gallery card) -----------------------------------------
-function MiniTree({ tree, decos }: { tree: DbTree; decos: DbDeco[] }) {
-  const g = getGrowth(tree.water_count, tree.fertilizer_count);
+function MiniTree({ decos }: { decos: DbDeco[] }) {
+  const g = 1; // personal trees are always full-grown
   const tiers = 3 + Math.round(g * 3);
   return (
     <svg viewBox="0 0 100 130" className="h-32 w-full">
@@ -142,7 +142,7 @@ function MiniTree({ tree, decos }: { tree: DbTree; decos: DbDeco[] }) {
           fill={d.color}
         />
       ))}
-      {g >= 1 && <polygon points="50,6 53,14 62,14 55,19 58,28 50,22 42,28 45,19 38,14 47,14" fill="#ffd23f" />}
+      {getEventPhase() === "CHRISTMAS_DAY" && <polygon points="50,6 53,14 62,14 55,19 58,28 50,22 42,28 45,19 38,14 47,14" fill="#ffd23f" />}
     </svg>
   );
 }
@@ -258,7 +258,7 @@ export function Gallery({
               className={`rounded-2xl bg-white/8 p-2 ${viewingId === t.id ? "ring-2 ring-amber-300" : ""}`}
             >
               <div className="relative">
-                <MiniTree tree={t} decos={decos.filter((d) => d.tree_id === t.id)} />
+                <MiniTree decos={decos.filter((d) => d.tree_id === t.id)} />
                 {i < 3 && t.votes_count > 0 && (
                   <span className="absolute left-1 top-1 text-lg">{["🥇", "🥈", "🥉"][i]}</span>
                 )}

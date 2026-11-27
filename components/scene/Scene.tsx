@@ -68,6 +68,8 @@ export interface SceneProps {
   preset: { name: CameraPresetName; nonce: number };
   shakeNonce: number;
   fx: Fx;
+  /** personal trees are always full-grown (no watering) */
+  fullGrown: boolean;
   placing: boolean;
   selectedId: string | null;
   onTreeClick: (p: [number, number, number]) => void;
@@ -93,7 +95,7 @@ export default function Scene(props: SceneProps) {
       <Falling count={christmas ? 1100 : 650} size={0.09} speed={christmas ? 1.1 : 0.8} />
       {christmas && <Falling count={160} size={0.16} speed={1.4} colored />}
       <ChristmasTree
-        growth={christmas ? 1 : growth}
+        growth={christmas || props.fullGrown ? 1 : growth}
         christmas={christmas}
         decos={props.decos}
         lightMode={props.lightMode}

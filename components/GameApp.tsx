@@ -135,6 +135,8 @@ export default function GameApp() {
   const canEdit =
     !!tree && !!userId && (tree.type === "community" || tree.owner_id === userId);
   const canCare = canWaterOrFertilize();
+  // personal trees are always full-grown: no watering / fertilizing
+  const showCare = tab !== "personal" && tree?.type !== "personal";
   const placing = canEdit && (!!tool || moving);
   const selected = decos.find((d) => d.id === selectedId) ?? null;
 
@@ -333,6 +335,7 @@ export default function GameApp() {
         preset={preset}
         shakeNonce={shakeNonce}
         fx={fx}
+        fullGrown={tab === "personal" || tree?.type === "personal"}
         placing={placing}
         selectedId={selectedId}
         onTreeClick={handleTreeClick}
@@ -376,7 +379,7 @@ export default function GameApp() {
         </nav>
         <div className="pointer-events-auto flex flex-wrap items-center gap-2 text-sm">
           <span className={`${glass} rounded-full px-3 py-1 font-semibold`}>{treeTitle}</span>
-          {tree && (
+          {tree?.type === "community" && (
             <span className={`${glass} rounded-full px-3 py-1`}>
               💧 {tree.water_count} · 🌱 {tree.fertilizer_count}
             </span>
@@ -516,6 +519,8 @@ export default function GameApp() {
         )}
 
         <div className="pointer-events-auto flex max-w-full flex-wrap items-center justify-center gap-2">
+          {showCare && (
+          <>
           <button
             onClick={() => care("water")}
             disabled={!canEdit || busy}
@@ -532,6 +537,8 @@ export default function GameApp() {
           >
             <Sprout size={16} /> ใส่ปุ๋ย
           </button>
+          </>
+          )}
           <button
             onClick={() => setShakeNonce((n) => n + 1)}
             className={`${glass} flex items-center gap-1.5 rounded-full px-4 py-2 hover:bg-slate-800/70`}
@@ -568,7 +575,7 @@ export default function GameApp() {
             ))}
           </div>
         </div>
-        {!canCare && (
+        {showCare && !canCare && (
           <p className="pointer-events-none rounded-full bg-black/40 px-3 py-1 text-xs text-white/90">
             {PRE_EVENT_WATER_HINT} — ตอนนี้แต่งต้นไม้และเขียนคำอธิษฐานได้เลย!
           </p>

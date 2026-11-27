@@ -238,7 +238,7 @@ export function ChristmasTree({
   const shakeT = useRef(0);
   const fxT = useRef(0);
 
-  const tiers = christmas ? MAX_TIERS : Math.min(6, Math.max(3, 3 + Math.floor(growth * 4.99)));
+  const tiers = growth >= 1 ? MAX_TIERS : Math.min(6, Math.max(3, 3 + Math.floor(growth * 4.99)));
   const topY = topYFor(tiers);
   const scale = 0.3 + 0.7 * growth;
   const bigStar = useMemo(() => makeStarGeometry(0.42, 0.18, 0.12), []);
