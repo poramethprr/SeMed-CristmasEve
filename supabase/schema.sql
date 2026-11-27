@@ -167,6 +167,15 @@ grant execute on function
   public.ensure_personal_tree(uuid)
 to anon, authenticated;
 
+-- ---------- Table privileges for the Data API -------------------------
+-- Newer Supabase projects do not auto-grant new tables to anon/authenticated,
+-- which causes "permission denied for table ...". RLS below still applies.
+
+grant usage on schema public to anon, authenticated;
+grant select, insert, update, delete on
+  public.users, public.trees, public.decorations, public.tree_votes, public.wishes
+to anon, authenticated;
+
 -- ---------- Row Level Security: public read/write ---------------------
 -- Deliberately permissive: internal event app, no login.
 
